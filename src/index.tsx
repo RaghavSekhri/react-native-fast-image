@@ -12,6 +12,7 @@ import {
     TransformsStyle,
     AccessibilityProps,
     ViewProps,
+    Platform
 } from 'react-native'
 
 const FastImageViewNativeModule = NativeModules.FastImageView
@@ -145,7 +146,7 @@ function FastImageBase({
     forwardedRef,
     ...props
 }: FastImageProps & { forwardedRef: React.Ref<any> }) {
-    if (fallback) {
+    if (fallback || Platform.OS === 'web') {
         const cleanedSource = { ...(source as any) }
         delete cleanedSource.cache
         const resolvedSource = Image.resolveAssetSource(cleanedSource)
@@ -155,7 +156,7 @@ function FastImageBase({
                 <Image
                     {...props}
                     style={StyleSheet.absoluteFill}
-                    source={resolvedSource}
+                    source={source}
                     onLoadStart={onLoadStart}
                     onProgress={onProgress}
                     onLoad={onLoad as any}
@@ -176,7 +177,7 @@ function FastImageBase({
                 {...props}
                 tintColor={tintColor}
                 style={StyleSheet.absoluteFill}
-                source={resolvedSource}
+                source={Image.resolveAssetSource(source)}
                 onFastImageLoadStart={onLoadStart}
                 onFastImageProgress={onProgress}
                 onFastImageLoad={onLoad}
@@ -218,7 +219,11 @@ FastImage.cacheControl = cacheControl
 FastImage.priority = priority
 
 FastImage.preload = (sources: Source[]) =>
-    FastImageViewNativeModule.preload(sources)
+    {
+        if (Platform.OS !== 'web') {
+            FastImageViewNativeModule.preload(sources)
+        }
+    }
 
 FastImage.clearMemoryCache = () => FastImageViewNativeModule.clearMemoryCache()
 
@@ -231,10 +236,12 @@ const styles = StyleSheet.create({
 })
 
 // Types of requireNativeComponent are not correct.
-const FastImageView = (requireNativeComponent as any)(
-    'FastImageView',
-    FastImage,
-    {
+let FastImageView: any;
+
+if (Platform.OS === 'web') {
+    FastImageView = Image
+} else {
+    FastImageView = requireNativeComponent('FastImageView', FastImage, {
         nativeOnly: {
             onFastImageLoadStart: true,
             onFastImageProgress: true,
@@ -242,7 +249,7 @@ const FastImageView = (requireNativeComponent as any)(
             onFastImageError: true,
             onFastImageLoadEnd: true,
         },
-    },
-)
+    })
+}
 
 export default FastImage
